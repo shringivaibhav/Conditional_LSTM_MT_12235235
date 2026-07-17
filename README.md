@@ -1,92 +1,180 @@
-# TBM Data Reconstruction using LSTM Seq2Seq Model
+# Conditional LSTM Reconstruction of Missing TBM Operational Data
 
 ## Overview
-This repository contains the preprocessing pipeline and deep learning model developed for reconstructing missing segments in Tunnel Boring Machine (TBM) operational data.  
 
-The workflow combines signal processing, statistical resampling, interpolation, and a multivariate sequence-to-sequence (Seq2Seq) Long Short-Term Memory (LSTM) model for data reconstruction.
+This repository contains the Python scripts developed for a master's thesis at Graz University of Technology.
 
-The implementation was developed as part of a Master's thesis at TU Graz.
+The study investigates the reconstruction of contiguous missing segments in chainage-indexed tunnel boring machine (TBM) operational data. The evaluated methods are:
+
+- linear interpolation;
+- local linear regression; and
+- a target-specific Conditional Long Short-Term Memory (LSTM) model.
+
+The Conditional LSTM combines multivariate observations from the left and right contexts of a gap with the three operational parameters that remain available inside the gap. A separate model is trained for each target parameter.
+
+The four investigated TBM parameters are:
+
+- CH Penetration [mm/rot];
+- CH Torque [MNm];
+- Thrust Force [kN]; and
+- CH Rotation [rpm].
 
 ---
 
 ## Repository Structure
 
-The repository consists of three scripts:
+### `1.Data_Preprocessing_MT_12235235.py`
 
-### 1. Preprocessing Pipeline
-**File:** `data_preprocessing.py`
+Prepares the raw TBM measurements for reconstruction.
 
-This script prepares raw TBM data for modeling. The key steps include:
+Main operations include:
 
-- Reading and merging multiple CSV files
-- Filtering invalid or missing entries
-- Removing standstill conditions
-- Wavelet-based signal denoising
-- Resampling data to uniform spatial intervals (1 m)
-- Hybrid interpolation of missing data:
-- Exporting processed datasets as `.parquet` files
+- reading and combining the raw CSV files;
+- removing invalid observations and standstill conditions;
+- wavelet-based denoising;
+- aggregation to one observation per meter of chainage;
+- interpolation of missing chainage positions; and
+- export of the processed dataset as `Follo_Finalv2.parquet`.
 
-Due to potential differences in data structure and preprocessing requirements, minor adjustments may be necessary to reproduce results on external datasets.
+The script also creates intermediate Parquet files and diagnostic figures.
 
----
+### `2.Linear_Interpolation_MT_12235235.py`
 
-### 2. Linear Interpolation Errors
-**File:** `linear_interp_errors.py`
+Creates an artificial gap and reconstructs each selected TBM parameter using linear interpolation.
 
-This script implements the linear interpolation method for reconstructing artificial gaps in TBM data used for future comparison. The script takes the preprocessed dataset in parquet format and creates user-defined artificial gaps in the data. It then fills the gaps using linear interpolation and computes the RMSE by comparing it with the true values from the preprocessed dataset.
+Outputs include:
 
----
+- reconstruction figures; and
+- `results_linear_interpolation/linear_interpolation_summary.csv`.
 
-### 3. LSTM Reconstruction Model
-**File:** `lstm_evaluation.py`
+### `3.Linear_Regression_MT_12235235.py`
 
-This script implements a multivariate Seq2Seq LSTM model for reconstructing artificial gaps in TBM data.
+Creates an artificial gap and reconstructs each selected parameter using a local linear regression between the parameter value and chainage.
 
-#### Key Features:
-- Bidirectional reconstruction:
-  - Forward model
-  - Backward model (time-reversed data)
-  - Weighted averaging of predictions
-- Smoothness-regularized loss function
-- Flexible gap definition and training configuration
-- Automatic scaling using MinMax normalization
+Outputs include:
 
-#### Model Workflow:
-1. Artificial gaps are defined in the dataset
-2. Training sequences are generated excluding gap regions
-3. Forward and backward LSTM models are trained
-4. Missing segments are reconstructed chunk-wise
-5. Final prediction is obtained via weighted averaging
+- reconstruction figures; and
+- `results_linear_regression/linear_regression_summary.csv`.
 
-#### Outputs:
-- Reconstruction plots (per parameter)
-- Error metrics (RMSE, nRMSE)
-- Results summary CSV: results/results_summary.csv
+### `4.Conditional_LSTM_MT_12235235.py`
 
----
+Implements the target-specific Conditional LSTM.
 
-### 4. RMSE Plots for Parameters
-**File:** `RMSE_plots.py`
+The model contains:
 
-This script plots the error metric (RMSE) for the Seq2Seq LSTM model averaging with training lengths, gap lengths, and training-to-gap ratio for the selected TBM parameters by taking the input from the CSV file separated for each operational parameter.
+- a left-context LSTM encoder;
+- a reversed right-context LSTM encoder;
+- an in-gap covariate LSTM encoder; and
+- a fully connected prediction head that reconstructs the complete gap in one
+  forward pass.
+
+The script trains one model for each target parameter and saves:
+
+- reconstructed and ground-truth values;
+- reconstruction figures;
+- a compact results summary;
+- run-configuration files; and
+- RMSE, MAE, Pearson correlation, and derivative-RMSE values.
+
+### `5.Representative_Plots_MT_12235235.py`
+
+Generates a combined comparison figure for a selected representative case. The plotted ground-truth and reconstruction values are specified directly in the script.
 
 ---
 
 ## Requirements
 
-Install the required Python packages before running the scripts:
+The implementation was developed using Python 3.10.
+
+Install the principal dependencies with:
 
 ```bash
-pip install numpy pandas matplotlib scikit-learn pyarrow pywt torch scipy
+pip install numpy pandas matplotlib scipy scikit-learn PyWavelets pyarrow torch
 ```
+
+CUDA is used automatically by the Conditional LSTM script when a compatible GPU and CUDA-enabled PyTorch installation are available. Otherwise, the model runs on the CPU.
+
+---
+
+## Data
+
+The raw and processed TBM datasets are not included because of data-availability and confidentiality restrictions.
+
+The preprocessing script expects the raw CSV files in the following relative directory:
+
+```text
+Follobanen/
+└── S980_All_CSV_files/
+    ├── file_001.csv
+    ├── file_002.csv
+    └── ...
+```
+
+The reconstruction scripts require:
+
+```text
+Follo_Finalv2.parquet
+```
+
+The processed dataset must contain the following columns:
+
+```text
+Station_meter
+CH Penetration [mm/rot]
+CH Torque [MNm]
+Thrust Force [kN]
+CH Rotation [rpm]
+```
+
+---
+
+## Usage
+
+The scripts are configuration-based and do not use command-line arguments. Parameters such as the gap location, gap length, training length, local regression window, and output directory are defined near the beginning of each script.
+
+Run the preprocessing script first:
+
+```bash
+python 1.Data_Preprocessing_MT_12235235.py
+```
+
+After `Follo_Finalv2.parquet` has been created, the reconstruction scripts can be executed independently:
+
+```bash
+python 2.Linear_Interpolation_MT_12235235.py
+python 3.Linear_Regression_MT_12235235.py
+python 4.Conditional_LSTM_MT_12235235.py
+```
+
+The representative plotting script can be executed after inserting the selected ground-truth and reconstruction values:
+
+```bash
+python 5.Representative_Plots_MT_12235235.py
+```
+
+Paths and configuration values may require adjustment depending on the local directory structure and operating system.
+
+---
+
+## Reproducibility Note
+
+The repository contains the principal computational implementation used in the thesis. However, it is not a fully automated reproduction package because the TBM dataset cannot be distributed and the final aggregation and formatting of the thesis tables were performed separately.
+
+Results may also vary depending on the software environment, hardware, and selected configuration. The Conditional LSTM script uses a fixed random seed to improve repeatability.
+
+---
+
+## Thesis
+
+**Title:** Reconstruction of Missing TBM Operational Data Using a Conditional LSTM
+
+**Author:** Vaibhav Shringi, BEng  
+**Master's Programme:** Geotechnical and Hydraulic Engineering  
+**Institution:** Graz University of Technology  
+**Institute:** Institute of Rock Mechanics and Tunnelling
+
+---
 
 ## Disclaimer
 
-- This repository is intended for research and educational purposes.
-- The dataset used in this study is not included due to size and confidentiality constraints.
-
-## Author
-
-- Vaibhav Shringi, BEng
-- Master’s Program in Geotechnical and Hydraulic Engineering
-- TU Graz, Austria
+This repository is intended for academic and research purposes. Application to other TBM datasets may require modifications to the input paths, column names, preprocessing procedure, and model configuration.
