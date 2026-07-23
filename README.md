@@ -8,7 +8,7 @@ The study investigates the reconstruction of contiguous missing segments in chai
 
 - linear interpolation;
 - local linear regression; and
-- a target-specific Conditional Long Short-Term Memory (LSTM) model.
+- a target-specific long short-term memory (LSTM) model, termed the Conditional LSTM.
 
 The Conditional LSTM combines multivariate observations from the left and right contexts of a gap with the three operational parameters that remain available inside the gap. A separate model is trained for each target parameter.
 
@@ -33,7 +33,7 @@ Main operations include:
 - removing invalid observations and standstill conditions;
 - wavelet-based denoising;
 - aggregation to one observation per meter of chainage;
-- interpolation of missing chainage positions; and
+- hybrid infilling of missing chainage positions; and
 - export of the processed dataset as `Follo_Finalv2.parquet`.
 
 The script also creates intermediate Parquet files and diagnostic figures.
@@ -63,22 +63,22 @@ Implements the target-specific Conditional LSTM.
 The model contains:
 
 - a left-context LSTM encoder;
-- a reversed right-context LSTM encoder;
+- a right-context LSTM encoder receiving the context in reversed order;
 - an in-gap covariate LSTM encoder; and
-- a fully connected prediction head that reconstructs the complete gap in one
-  forward pass.
+- a fully connected prediction head that reconstructs the missing target sequence in one forward pass.
 
 The script trains one model for each target parameter and saves:
 
-- reconstructed and ground-truth values;
+- reconstructed and reference values;
 - reconstruction figures;
 - a compact results summary;
 - run-configuration files; and
-- RMSE, MAE, Pearson correlation, and derivative-RMSE values.
+- RMSE, MAE, Pearson correlation coefficient, and derivative-RMSE values.
 
 ### `5.Representative_Plots_MT_12235235.py`
 
-Generates a combined comparison figure for a selected representative case. The plotted ground-truth and reconstruction values are specified directly in the script.
+Generates a comparison plot for a selected representative reconstruction case. The plotted reference and reconstruction values are specified directly in the script. The figure is exported in PDF format for inclusion in the thesis.
+
 
 ---
 
@@ -98,7 +98,7 @@ CUDA is used automatically by the Conditional LSTM script when a compatible GPU 
 
 ## Data
 
-The raw and processed TBM datasets are not included because of data-availability and confidentiality restrictions.
+The raw and processed TBM datasets are not included because of data availability and confidentiality restrictions.
 
 The preprocessing script expects the raw CSV files in the following relative directory:
 
